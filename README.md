@@ -10,12 +10,15 @@ PGP users. Thanks
 
 ## Building
 
-Best to use `go get`:
+Prepare a Go environment if you haven't done so already, for more
+information refer to https://golang.org/doc/install
+
+Install using `go get`:
 
 	$ go get git.maze.io/maze/pgp-suffix-finder
 	$ go build git.maze.io/maze/pgp-suffix-finder
 
-Otherwise, clone into $GOPATH:
+Otherwise, clone into `$GOPATH`:
 
 	$ mkdir -p $GOPATH/git.maze.io/maze
 	$ git clone https://git.maze.io/maze/pgp-suffix-finder \
