@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -67,7 +66,7 @@ func humanScale(f float64) string {
 func findSuffixWorker(suffix, b []byte, ts, min, step uint32, found chan []byte, wg *sync.WaitGroup, round *uint64) {
 	//log.Printf("worker: scan %d down to %d, step %d\n", ts, min, step)
 	for ; ts > min; ts = ts - step {
-		atomic.AddUint64(round, 1)
+		*round++
 
 		b[4] = byte(ts >> 24)
 		b[5] = byte(ts >> 16)
@@ -88,7 +87,7 @@ func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
 	wg := new(sync.WaitGroup)
 
 	var (
-		round uint64
+		round = make([]uint64, workers)
 		found = make(chan []byte, 1)
 		total = ts - min
 	)
@@ -99,7 +98,7 @@ func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
 		wb := make([]byte, len(b))
 		copy(wb, b)
 
-		go findSuffixWorker(suffix, wb, ts-uint32(i), min, uint32(workers), found, wg, &round)
+		go findSuffixWorker(suffix, wb, ts-uint32(i), min, uint32(workers), found, wg, &round[i])
 	}
 
 	abort := make(chan struct{}, 1)
@@ -112,11 +111,15 @@ func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
 	start := time.Now()
 	state := func() string {
 		delta := time.Since(start)
+		var rounds uint64
+		for _, r := range round {
+			rounds += r
+		}
 		return fmt.Sprintf("%s %s, %sk/s [r=%d,t=%s]\r",
 			time.Now().Format("2006/01/02 15:04:05"),
-			progress((float64(round)/float64(total))*100+.05, 20),
-			humanScale(float64(round)/(float64(delta)/float64(time.Second))),
-			round, delta/time.Second*time.Second)
+			progress((float64(rounds)/float64(total))*100+.05, 20),
+			humanScale(float64(rounds)/(float64(delta)/float64(time.Second))),
+			rounds, delta/time.Second*time.Second)
 	}
 
 	defer func() {
