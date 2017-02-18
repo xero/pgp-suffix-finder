@@ -8,6 +8,20 @@ This tool can brute force any (short) PGP key suffix, use it for good; e.g.
 creating vanity key IDs. Don't use it to generate collisions and annoy other
 PGP users. Thanks
 
+## Building
+
+Best to use `go get`:
+
+	$ go get git.maze.io/maze/pgp-suffix-finder
+	$ go build git.maze.io/maze/pgp-suffix-finder
+
+Otherwise, clone into $GOPATH:
+
+	$ mkdir -p $GOPATH/git.maze.io/maze
+	$ git clone https://git.maze.io/maze/pgp-suffix-finder \
+		$GOPATH/git.maze.io/maze/pgp-suffix-finder
+	$ go build git.maze.io/maze/pgp-suffix-finder
+
 ## References
 
 ### OpenPGP specification
