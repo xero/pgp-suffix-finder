@@ -64,35 +64,6 @@ func humanScale(f float64) string {
 	}
 }
 
-func findSuffixSingle(suffix, b []byte, min uint32) (bool, []byte) {
-	var (
-		ts    = readUint32(b[4:])
-		round uint64
-		start = time.Now()
-		total = ts - min
-	)
-	for ; ts > min; ts-- {
-		b[4] = byte(ts >> 24)
-		b[5] = byte(ts >> 16)
-		b[6] = byte(ts >> 8)
-		b[7] = byte(ts)
-
-		if hasSuffix(b, suffix) {
-			return true, b
-		}
-
-		round++
-		if round%10000000 == 0 {
-			delta := float64(time.Since(start)) / float64(time.Second)
-			log.Printf("%s @ %.1f%%, %fk/s\n",
-				time.Unix(int64(ts), 0).Format("2006-01-02"),
-				(float64(round)/float64(total))*100, float64(round)/delta)
-		}
-	}
-
-	return false, nil
-}
-
 func findSuffixWorker(suffix, b []byte, ts, min, step uint32, found chan []byte, wg *sync.WaitGroup, round *uint64) {
 	//log.Printf("worker: scan %d down to %d, step %d\n", ts, min, step)
 	for ; ts > min; ts = ts - step {
@@ -112,7 +83,7 @@ func findSuffixWorker(suffix, b []byte, ts, min, step uint32, found chan []byte,
 	wg.Done()
 }
 
-func findSuffixParallel(suffix, b []byte, min uint32, workers int) (bool, []byte) {
+func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
 	ts := readUint32(b[4:])
 	wg := new(sync.WaitGroup)
 
@@ -406,12 +377,7 @@ func find(workers, bits int, name, email string, suffix []byte, min time.Duratio
 		key   []byte
 		start = time.Now()
 	)
-	if workers == 1 {
-		found, key = findSuffixSingle(suffix, packet, uint32(tsMin.Unix()))
-	} else {
-		found, key = findSuffixParallel(suffix, packet, uint32(tsMin.Unix()), workers)
-	}
-	if found {
+	if found, key = findSuffix(suffix, packet, uint32(tsMin.Unix()), workers); found {
 		delta := time.Since(start)
 		fingerprint := readableFingerprint(key)
 		log.Printf("public key %s found in %s\n", fingerprint, delta)
