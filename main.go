@@ -310,8 +310,16 @@ func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err
 	if secRing, err = ioutil.ReadFile(secFile.Name()); err != nil {
 		return
 	}
+	if l := len(secRing); l < 1024 {
+		err = fmt.Errorf("keypair generation failed: unlikely secring size %d", l)
+		return
+	}
 
 	if pubRing, err = ioutil.ReadFile(pubFile.Name()); err != nil {
+		return
+	}
+	if l := len(pubRing); l < 1024 {
+		err = fmt.Errorf("keypair generation failed: unlikely secring size %d", l)
 		return
 	}
 
