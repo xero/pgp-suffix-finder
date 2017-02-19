@@ -278,6 +278,7 @@ func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err
 
 	log.Printf("generating %d bits RSA key for %s <%s>\n", bits, name, email)
 	cmd := exec.Command("gpg", "--batch", "--gen-key")
+	cmd.Stderr = os.Stderr
 
 	var stdin io.WriteCloser
 	if stdin, err = cmd.StdinPipe(); err != nil {
