@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -260,6 +261,18 @@ func populateStdin(str string) func(io.WriteCloser) {
 	}
 }
 
+func gpgVersion() (float64, error) {
+	b, err := exec.Command("gpg", "--version").Output()
+	if err != nil {
+		return 0, err
+	}
+	const prefix = "gpg (GnuPG) "
+	if !strings.HasPrefix(string(b), prefix) {
+		return 0, nil
+	}
+	return strconv.ParseFloat(string(b[len(prefix):len(prefix)+3]), 32)
+}
+
 func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err error) {
 	var secFile, pubFile *os.File
 	if secFile, err = ioutil.TempFile("", "secring"); err != nil {
@@ -421,6 +434,18 @@ func main() {
 	min, err := time.ParseDuration(*scanMin)
 	if err != nil {
 		log.Fatalf("invalid duration %q: %v\n", *scanMin, err)
+	}
+
+	ver, err := gpgVersion()
+	if err != nil {
+		log.Fatalf("failed to probe GnuPG version: %v\n", err)
+	}
+	if ver == 0.0 {
+		log.Println("WARNING! unknown GnuPG version")
+	} else if ver > 2.0 {
+		log.Printf("WARNING! unsupported GnuPG version %.1f.x; tested up until 2.0.30\n", ver)
+	} else {
+		log.Printf("GnuPG version %.1f.x\n", ver)
 	}
 
 	for {

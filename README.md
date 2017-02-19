@@ -8,6 +8,12 @@ This tool can brute force any (short) PGP key suffix, use it for good; e.g.
 creating vanity key IDs. Don't use it to generate collisions and annoy other
 PGP users. Thanks
 
+## Requirements
+
+A recent Go version will give you the SIMD variant of the SHA1 algorithm. You
+need GnuPG available as `gpg`. Versions 1.4.20 & 2.0.30 are tested and work
+properly, 2.1.18 doesn't work.
+
 ## Building
 
 Prepare a Go environment if you haven't done so already, for more
