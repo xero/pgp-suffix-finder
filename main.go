@@ -21,12 +21,6 @@ import (
 	"time"
 )
 
-func hasSuffix(b, suffix []byte) bool {
-	h := sha1.Sum(b)
-	//log.Printf("%s =~ %s?\n", paddedHex(h[:]), paddedHex(suffix))
-	return bytes.HasSuffix(h[:], suffix)
-}
-
 func progress(perc float64, size int) string {
 	var (
 		s = "["
@@ -64,17 +58,21 @@ func humanScale(f float64) string {
 	}
 }
 
-func findSuffixWorker(suffix, b []byte, ts, min, step uint32, found chan []byte, wg *sync.WaitGroup, round *uint64) {
-	//log.Printf("worker: scan %d down to %d, step %d\n", ts, min, step)
+func findSuffixWorker(suffix, b []byte, offset int, ts, min, step uint32, found chan []byte, wg *sync.WaitGroup, round *uint64) {
+	var (
+		o = offset + 1 // Offset for the timestamp in the packet
+		h = sha1.New()
+	)
 	for ; ts > min; ts = ts - step {
 		*round++
 
-		b[4] = byte(ts >> 24)
-		b[5] = byte(ts >> 16)
-		b[6] = byte(ts >> 8)
-		b[7] = byte(ts)
+		b[o+0] = byte(ts >> 24)
+		b[o+1] = byte(ts >> 16)
+		b[o+2] = byte(ts >> 8)
+		b[o+3] = byte(ts)
 
-		if hasSuffix(b, suffix) {
+		h.Reset()
+		if bytes.HasSuffix(h.Sum(b), suffix) {
 			found <- b
 			return
 		}
