@@ -22,6 +22,9 @@ import (
 	"time"
 )
 
+// Debug flag
+var Debug = flag.Bool("debug", false, "enable debug output")
+
 func progress(perc float64, size int) string {
 	var (
 		s = "["
@@ -294,8 +297,10 @@ func generateKeyRing(bits int, name, email string) (ring *keyRing, err error) {
 
 	log.Printf("generating %d bits RSA key for %s <%s>\n", bits, name, email)
 	cmd := exec.Command("gpg", "--no-tty", "--batch", "--gen-key")
-	cmd.Stdout = ioutil.Discard
-	cmd.Stderr = os.Stderr
+	if !*Debug {
+		cmd.Stdout = ioutil.Discard
+		cmd.Stderr = ioutil.Discard
+	}
 
 	var stdin io.WriteCloser
 	if stdin, err = cmd.StdinPipe(); err != nil {
@@ -467,12 +472,12 @@ func main() {
 		log.Printf("GnuPG version %.1f.x\n", ver)
 	}
 
+	// Spin up key generator
+	var rings = make(chan *keyRing, 0)
+	go generateKeyRings(rings, *bits, *name, *email)
+
 	for {
-		var (
-			found bool
-			rings = make(chan *keyRing, 1)
-		)
-		go generateKeyRings(rings, *bits, *name, *email)
+		var found bool
 		if found, err = find(*workers, rings, suffix, min); err != nil {
 			log.Fatalln(err)
 		}
