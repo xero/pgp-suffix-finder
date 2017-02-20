@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -81,7 +82,7 @@ func findSuffixWorker(suffix, b []byte, offset int, ts, min, step uint32, found 
 	wg.Done()
 }
 
-func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
+func findSuffix(suffix, b []byte, offset int, min uint32, workers int) (bool, []byte) {
 	ts := readUint32(b[4:])
 	wg := new(sync.WaitGroup)
 
@@ -97,7 +98,7 @@ func findSuffix(suffix, b []byte, min uint32, workers int) (bool, []byte) {
 		wb := make([]byte, len(b))
 		copy(wb, b)
 
-		go findSuffixWorker(suffix, wb, ts-uint32(i), min, uint32(workers), found, wg, &round[i])
+		go findSuffixWorker(suffix, wb, offset, ts-uint32(i), min, uint32(workers), found, wg, &round[i])
 	}
 
 	abort := make(chan struct{}, 1)
@@ -271,7 +272,11 @@ func gpgVersion() (float64, error) {
 	return strconv.ParseFloat(string(b[len(prefix):len(prefix)+3]), 32)
 }
 
-func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err error) {
+type keyRing struct {
+	pub, sec []byte
+}
+
+func generateKeyRing(bits int, name, email string) (ring *keyRing, err error) {
 	var secFile, pubFile *os.File
 	if secFile, err = ioutil.TempFile("", "secring"); err != nil {
 		return
@@ -288,7 +293,8 @@ func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err
 	}()
 
 	log.Printf("generating %d bits RSA key for %s <%s>\n", bits, name, email)
-	cmd := exec.Command("gpg", "--batch", "--gen-key")
+	cmd := exec.Command("gpg", "--no-tty", "--batch", "--gen-key")
+	cmd.Stdout = ioutil.Discard
 	cmd.Stderr = os.Stderr
 
 	var stdin io.WriteCloser
@@ -318,18 +324,20 @@ func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err
 		log.Panic(err)
 	}
 
-	if secRing, err = ioutil.ReadFile(secFile.Name()); err != nil {
+	ring = new(keyRing)
+
+	if ring.sec, err = ioutil.ReadFile(secFile.Name()); err != nil {
 		return
 	}
-	if l := len(secRing); l < 1024 {
+	if l := len(ring.sec); l < 1024 {
 		err = fmt.Errorf("keypair generation failed: unlikely secring size %d", l)
 		return
 	}
 
-	if pubRing, err = ioutil.ReadFile(pubFile.Name()); err != nil {
+	if ring.pub, err = ioutil.ReadFile(pubFile.Name()); err != nil {
 		return
 	}
-	if l := len(pubRing); l < 1024 {
+	if l := len(ring.pub); l < 1024 {
 		err = fmt.Errorf("keypair generation failed: unlikely secring size %d", l)
 		return
 	}
@@ -337,7 +345,20 @@ func generateKeyRing(bits int, name, email string) (secRing, pubRing []byte, err
 	return
 }
 
-func saveRing(name string, pubRing, secRing []byte, ts uint32, offset, length int, uidString string) (err error) {
+func generateKeyRings(rings chan *keyRing, bits int, name, email string) {
+	for {
+		start := time.Now()
+		ring, err := generateKeyRing(bits, name, email)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		log.Printf("generated %d bits keyring in %s\n", bits, time.Since(start))
+		// This will block until there is a slot available on the channel
+		rings <- ring
+	}
+}
+
+func saveRing(name string, ring *keyRing, ts uint32, offset, length int) (err error) {
 	log.Printf("saving dir %s/\n", name)
 	if err = os.MkdirAll(name, 0700); err != nil {
 		return
@@ -345,35 +366,26 @@ func saveRing(name string, pubRing, secRing []byte, ts uint32, offset, length in
 
 	log.Printf("found match on %s\n", time.Unix(int64(ts), 0))
 	log.Printf("replace timestamp at +%d\n", offset)
-	pubRing[4] = byte(ts >> 24)
-	pubRing[5] = byte(ts >> 16)
-	pubRing[6] = byte(ts >> 8)
-	pubRing[7] = byte(ts)
+	binary.BigEndian.PutUint32(ring.pub[offset+1:], ts)
 	pubName := filepath.Join(name, "pubring.gpg")
 	log.Printf("saving pubring to %s\n", pubName)
-	if err = ioutil.WriteFile(pubName, pubRing, 0644); err != nil {
+	if err = ioutil.WriteFile(pubName, ring.pub, 0644); err != nil {
 		return
 	}
 
-	secRing[4] = byte(ts >> 24)
-	secRing[5] = byte(ts >> 16)
-	secRing[6] = byte(ts >> 8)
-	secRing[7] = byte(ts)
+	binary.BigEndian.PutUint32(ring.sec[offset+1:], ts)
 	secName := filepath.Join(name, "secring.gpg")
 	log.Printf("saving secring to %s\n", secName)
-	if err = ioutil.WriteFile(secName, secRing, 0600); err != nil {
+	if err = ioutil.WriteFile(secName, ring.sec, 0600); err != nil {
 		return
 	}
 	return
 }
 
-func find(workers, bits int, name, email string, suffix []byte, min time.Duration) (found bool, err error) {
-	var secRing, pubRing []byte
-	if secRing, pubRing, err = generateKeyRing(bits, name, email); err != nil {
-		return
-	}
-
-	ringFile := bytes.NewBuffer(pubRing)
+func find(workers int, rings chan *keyRing, suffix []byte, min time.Duration) (found bool, err error) {
+	// Pull a new keyring from the channel, this will block until there is one available
+	ring := <-rings
+	ringFile := bytes.NewBuffer(ring.pub)
 
 	var (
 		packet []byte
@@ -400,12 +412,11 @@ func find(workers, bits int, name, email string, suffix []byte, min time.Duratio
 		key   []byte
 		start = time.Now()
 	)
-	if found, key = findSuffix(suffix, packet, uint32(tsMin.Unix()), workers); found {
+	if found, key = findSuffix(suffix, packet, offset, uint32(tsMin.Unix()), workers); found {
 		delta := time.Since(start)
 		fingerprint := readableFingerprint(key)
 		log.Printf("public key %s found in %s\n", fingerprint, delta)
-		uid := fmt.Sprintf("%s <%s>", name, email)
-		err = saveRing(strings.Replace(fingerprint, " ", "", -1), pubRing, secRing, readUint32(key[4:]), offset, len(packet), uid)
+		err = saveRing(strings.Replace(fingerprint, " ", "", -1), ring, readUint32(key[4:]), offset, len(packet))
 	}
 
 	return
@@ -457,11 +468,16 @@ func main() {
 	}
 
 	for {
-		var found bool
-		if found, err = find(*workers, *bits, *name, *email, suffix, min); err != nil {
+		var (
+			found bool
+			rings = make(chan *keyRing, 1)
+		)
+		go generateKeyRings(rings, *bits, *name, *email)
+		if found, err = find(*workers, rings, suffix, min); err != nil {
 			log.Fatalln(err)
 		}
 		if found {
+			close(rings)
 			break
 		}
 		log.Println("... not found, next round!")
