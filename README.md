@@ -2,6 +2,8 @@
 
 Brute force PGP key ID suffixes of arbitrary length.
 
+`this is a mirror of a cool tool by a friend of mine who has vanished from the internet i dont want to lose`
+
 ## Warning!
 
 This tool can brute force any (short) PGP key suffix, use it for good; e.g.
@@ -12,7 +14,7 @@ PGP users. Thanks
 
 A recent Go version will give you the SIMD variant of the SHA1 algorithm. You
 need GnuPG available as `gpg`. Versions 1.4.20 & 2.0.30 are tested and work
-properly, 2.1.18 doesn't work.
+properly, **2.1.x and above do not work!**
 
 ## Building
 
@@ -21,15 +23,15 @@ information refer to https://golang.org/doc/install
 
 Install using `go get`:
 
-	$ go get git.maze.io/maze/pgp-suffix-finder
-	$ go build git.maze.io/maze/pgp-suffix-finder
+	$ go get github.com/xero/pgp-suffix-finder
+	$ go build github.com/xero/pgp-suffix-finder
 
 Otherwise, clone into `$GOPATH`:
 
-	$ mkdir -p $GOPATH/git.maze.io/maze
-	$ git clone https://git.maze.io/maze/pgp-suffix-finder \
-		$GOPATH/git.maze.io/maze/pgp-suffix-finder
-	$ go build git.maze.io/maze/pgp-suffix-finder
+	$ mkdir -p $GOPATH/github.com/xero
+	$ git clone https://github.com/xero/pgp-suffix-finder \
+		$GOPATH/github.com/xero/pgp-suffix-finder
+	$ go build github.com/xero/pgp-suffix-finder
 
 ## References
 
