@@ -264,7 +264,7 @@ func populateStdin(str string) func(io.WriteCloser) {
 }
 
 func gpgVersion() (float64, error) {
-	b, err := exec.Command("gpg", "--version").Output()
+	b, err := exec.Command("gpg1", "--version").Output()
 	if err != nil {
 		return 0, err
 	}
@@ -296,7 +296,7 @@ func generateKeyRing(bits int, name, email string) (ring *keyRing, err error) {
 	}()
 
 	log.Printf("generating %d bits RSA key for %s <%s>\n", bits, name, email)
-	cmd := exec.Command("gpg", "--no-tty", "--batch", "--gen-key")
+	cmd := exec.Command("gpg1", "--no-tty", "--batch", "--gen-key")
 	if !*Debug {
 		cmd.Stdout = ioutil.Discard
 		cmd.Stderr = ioutil.Discard
