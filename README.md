@@ -2,19 +2,31 @@
 
 Brute force PGP key ID suffixes of arbitrary length.
 
-`this is a mirror of a cool tool by a friend of mine who has vanished from the internet i dont want to lose`
+this project started on the `unix.chat` irc when someone said we all needed 
+k-rad hexspeak gpg keys. before we were done discussing it maze had already 
+coded a tool in go for us. he's recently been mia and i wanted to mirror this 
+_cool tool_ in case he ghosts.
 
-## Warning!
+## :rotating_light: Warning! :rotating_light:
 
-This tool can brute force any (short) PGP key suffix, use it for good; e.g.
-creating vanity key IDs. Don't use it to generate collisions and annoy other
+This tool can brute force any (short) PGP key suffix, use it for good; e.g. 
+creating vanity key IDs. Don't use it to generate collisions and annoy other 
 PGP users. Thanks
 
 ## Requirements
 
-A recent Go version will give you the SIMD variant of the SHA1 algorithm. You
-need GnuPG available as `gpg`. Versions 1.4.20 & 2.0.30 are tested and work
+A recent Go version will give you the SIMD variant of the SHA1 algorithm. ~~You 
+need GnuPG available as `gpg`.~~ Versions 1.4.20 & 2.0.30 are tested and work 
 properly, **2.1.x and above do not work!**
+
+the code has been updated to use a binary called `gpg1` 
+(use [this aur package](https://aur.archlinux.org/packages/gnupg1/) {,as your guide}) 
+to allow version 1.4.x and the newest to co-exist on your system.
+
+if you do install an appropriate binary named `gpg` 
+update lines [267](https://github.com/xero/pgp-suffix-finder/blob/master/main.go#L267) 
+and [299](https://github.com/xero/pgp-suffix-finder/blob/master/main.go#L299) 
+in `main.go` as necessary.
 
 ## Building
 
