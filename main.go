@@ -452,11 +452,11 @@ func main() {
 
 	tmp, err := ioutil.TempDir("", "pgp-suffix-finder")
 	if err != nil {
-		log.Fatalln("unable to create temporary folder: %v\n", err)
+		log.Fatalf("unable to create temporary folder: %v\n", err)
 	}
 	defer os.RemoveAll(tmp)
 	if err = os.Mkdir(filepath.Join(tmp, ".gnupg"), 0700); err != nil {
-		log.Fatalln("unable to create temporary folder: %v\n", err)
+		log.Fatalf("unable to create temporary folder: %v\n", err)
 	}
 	os.Setenv("GNUPGHOME", filepath.Join(tmp, ".gnupg"))
 
